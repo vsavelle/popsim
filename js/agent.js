@@ -1,4 +1,5 @@
 import { findPath } from './pathfinding.js';
+import { TILE } from './city.js';
 
 // ── Helper: format sim hours as HH:MM string ───────────────────
 export function formatSimTime(hours) {
@@ -92,6 +93,11 @@ export class Agent {
     // ── Path history (for visualisation) ──
     // Each entry: { path: [{x,y},...], tileType: TILE_TYPE }
     this.pathHistory = [];
+
+    // ── Passed-by tracking (tiles adjacent to travel route) ──
+    // Map: tileName → count
+    this.passedByTiles = new Map();
+    this._lastTrackedTile = -1;   // pathIndex of last scan
 
     this.phase = 'sleeping';
   }
@@ -325,6 +331,7 @@ export class Agent {
     this.path = findPath(this.city, sx, sy, target.x, target.y);
     this.pathIndex = 0;
     this.moveProgress = 0;
+    this._lastTrackedTile = -1;
 
     // Record for path visualisation
     if (this.path && this.path.length > 1) {
@@ -333,6 +340,28 @@ export class Agent {
         path: this.path.map(p => ({ x: p.x, y: p.y })),
         tileType: originTile,
       });
+    }
+  }
+
+  /**
+   * Scan tiles adjacent to the agent's current path tile for named buildings.
+   */
+  _trackNearbyTiles() {
+    if (!this.path || this.pathIndex === this._lastTrackedTile) return;
+    this._lastTrackedTile = this.pathIndex;
+
+    const pos = this.path[this.pathIndex];
+    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+    for (const [dx, dy] of dirs) {
+      const nx = pos.x + dx;
+      const ny = pos.y + dy;
+      const t = this.city.getTile(nx, ny);
+      if (t === TILE.BUSINESS || t === TILE.LEISURE || t === TILE.EATERY) {
+        const name = this.city.getNameAt(nx, ny);
+        if (name) {
+          this.passedByTiles.set(name, (this.passedByTiles.get(name) || 0) + 1);
+        }
+      }
     }
   }
 
@@ -349,6 +378,7 @@ export class Agent {
     while (this.moveProgress >= 1 && this.pathIndex < this.path.length - 1) {
       this.pathIndex++;
       this.moveProgress -= 1;
+      this._trackNearbyTiles();
     }
 
     // Check arrival

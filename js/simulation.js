@@ -62,6 +62,7 @@ export class Simulation {
     this._frameCache    = [];     // array of frame snapshots
     this._cachedLogs    = null;   // agent logs from the original run
     this._cachedPaths   = null;   // agent pathHistory from the original run
+    this._cachedPassedBy = null;  // agent passedByTiles from the original run
     this._replaying     = false;
     this._replayIndex   = 0;
     this._replayStart   = 0;
@@ -90,8 +91,9 @@ export class Simulation {
     this.selectedAgent = null;
     this.selectedTile  = null;
     this._frameCache   = [];
-    this._cachedLogs   = null;
-    this._cachedPaths  = null;
+    this._cachedLogs    = null;
+    this._cachedPaths   = null;
+    this._cachedPassedBy = null;
 
     // Clear activity table if present
     this._clearActivityTable();
@@ -216,6 +218,11 @@ export class Simulation {
           this.agents[i].pathHistory = this._cachedPaths[i];
         }
       }
+      if (this._cachedPassedBy) {
+        for (let i = 0; i < this.agents.length; i++) {
+          this.agents[i].passedByTiles = this._cachedPassedBy[i];
+        }
+      }
       this._buildActivityTable();
       this._showReplayBtn();
       return;
@@ -286,6 +293,7 @@ export class Simulation {
       this._cachedPaths = this.agents.map(a =>
         a.pathHistory.map(p => ({ path: [...p.path], tileType: p.tileType }))
       );
+      this._cachedPassedBy = this.agents.map(a => new Map(a.passedByTiles));
       this._buildActivityTable();
       this._showReplayBtn();
       if (this.onComplete) this.onComplete();
@@ -556,7 +564,7 @@ export class Simulation {
 
       if (this.city) {
         const t = this.city.getTile(tileX, tileY);
-        if (t === TILE.BUSINESS || t === TILE.LEISURE || t === TILE.EATERY) {
+        if (t === TILE.BUSINESS || t === TILE.LEISURE || t === TILE.EATERY || t === TILE.HOUSE) {
           const same = this.selectedTile &&
                        this.selectedTile.x === tileX &&
                        this.selectedTile.y === tileY;
@@ -724,6 +732,46 @@ export class Simulation {
         }
         table.appendChild(tbody);
         agentDetails.appendChild(table);
+      }
+
+      // ── Travel Details button ──
+      if (a.passedByTiles && a.passedByTiles.size > 0) {
+        const detailsWrap = document.createElement('div');
+        detailsWrap.classList.add('travel-details-wrap');
+
+        const detailsBtn = document.createElement('button');
+        detailsBtn.classList.add('travel-details-btn');
+        detailsBtn.textContent = 'Travel Details';
+
+        const detailsPanel = document.createElement('div');
+        detailsPanel.classList.add('travel-details-panel');
+        detailsPanel.style.display = 'none';
+
+        // Build sorted list from passedByTiles map
+        const sorted = [...a.passedByTiles.entries()].sort((a, b) => b[1] - a[1]);
+        const detTbl = document.createElement('table');
+        detTbl.classList.add('agent-event-table', 'travel-details-table');
+        detTbl.innerHTML = `<thead><tr><th>Place</th><th>Times Passed</th></tr></thead>`;
+        const dtbody = document.createElement('tbody');
+        for (const [name, count] of sorted) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = count > 1
+            ? `<td>${name} x ${count}</td><td>${count}</td>`
+            : `<td>${name}</td><td>1</td>`;
+          dtbody.appendChild(tr);
+        }
+        detTbl.appendChild(dtbody);
+        detailsPanel.appendChild(detTbl);
+
+        detailsBtn.addEventListener('click', () => {
+          const showing = detailsPanel.style.display !== 'none';
+          detailsPanel.style.display = showing ? 'none' : 'block';
+          detailsBtn.textContent = showing ? 'Travel Details' : 'Hide Details';
+        });
+
+        detailsWrap.appendChild(detailsBtn);
+        detailsWrap.appendChild(detailsPanel);
+        agentDetails.appendChild(detailsWrap);
       }
 
       list.appendChild(agentDetails);

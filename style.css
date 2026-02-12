@@ -254,3 +254,43 @@ canvas {
 .agent-event-table tbody tr:hover {
   background: rgba(126, 184, 218, 0.05);
 }
+
+/* --- Travel Details --- */
+
+.travel-details-wrap {
+  padding: 4px 12px 6px;
+}
+
+.travel-details-btn {
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #556;
+  background: #1a1a2e;
+  color: #aad4f0;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.travel-details-btn:hover {
+  background: #7eb8da;
+  color: #0d0d1a;
+}
+
+.travel-details-panel {
+  margin-top: 4px;
+}
+
+.travel-details-table {
+  max-height: 180px;
+  display: block;
+  overflow-y: auto;
+}
+
+.travel-details-table thead,
+.travel-details-table tbody {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
