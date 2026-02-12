@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PopSim — Population Simulator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <h1>PopSim</h1>
+    <div id="controls">
+      <button id="startBtn">Start Simulation</button>
+      <button id="generateBtn">Generate New City</button>
+      <button id="replayBtn" style="display:none">Replay</button>
+    </div>
+    <div id="timeDisplay">Real: 0:00 / 3:00  |  In-World: 00:00</div>
+    <canvas id="simCanvas" width="840" height="560"></canvas>
+    <div id="statusDisplay">City generated. Press Start to begin simulation.</div>
+    <div id="legend">
+      <span class="legend-item"><span class="dot dot-sleeping"></span> Sleeping</span>
+      <span class="legend-item"><span class="dot dot-home"></span> At Home</span>
+      <span class="legend-item"><span class="dot dot-traveling"></span> Traveling</span>
+      <span class="legend-item"><span class="dot dot-working"></span> At Work</span>
+      <span class="legend-item"><span class="dot dot-leisure"></span> At Leisure</span>
+      <span class="legend-item"><span class="dot dot-delivery"></span> Delivery</span>
+      <span class="legend-sep">|</span>
+      <span class="legend-item"><span class="tile tile-house"></span> House</span>
+      <span class="legend-item"><span class="tile tile-business"></span> Business</span>
+      <span class="legend-item"><span class="tile tile-leisure"></span> Leisure</span>
+      <span class="legend-item"><span class="tile tile-eatery"></span> Eatery</span>
+      <span class="legend-item"><span class="tile tile-road"></span> Road</span>
+    </div>
+    <div id="activityTableContainer"></div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
