@@ -340,6 +340,8 @@ export class Agent {
         path: this.path.map(p => ({ x: p.x, y: p.y })),
         tileType: originTile,
       });
+      // Track adjacent tiles at the starting position
+      this._trackNearbyTiles();
     }
   }
 
