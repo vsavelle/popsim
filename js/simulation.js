@@ -142,6 +142,51 @@ export class Simulation {
     }
   }
 
+  completeNow() {
+    if (!this.running) return;
+    // If paused, account for paused time
+    if (this.paused) {
+      this._pausedTotal += performance.now() - this._pauseStart;
+      this._pauseStart = 0;
+      this.paused = false;
+    }
+    // Cancel the running animation loop
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+    // Fast-forward: step through remaining sim time in small increments
+    const now = performance.now();
+    let elapsed = (now - this.startTime - this._pausedTotal) / 1000;
+    const stepReal = 1;  // 1-second real-time steps
+    while (elapsed < SIM_DURATION_REAL) {
+      elapsed += stepReal;
+      if (elapsed > SIM_DURATION_REAL) elapsed = SIM_DURATION_REAL;
+      const simHours = (elapsed / SIM_DURATION_REAL) * SIM_DURATION_HOURS;
+      for (const agent of this.agents) {
+        agent.update(simHours, stepReal);
+      }
+      for (const driver of this.drivers) {
+        driver.update(simHours, stepReal);
+      }
+      this._recordFrame(elapsed, simHours);
+    }
+    // Render final state
+    this._render(SIM_DURATION_HOURS);
+    this._updateTimeDisplay(SIM_DURATION_REAL, SIM_DURATION_HOURS);
+    this._setStatus('Simulation complete!');
+    this.running = false;
+    this.paused  = false;
+    this._cachedLogs  = this.agents.map(a => [...a.log.map(e => ({...e}))]);
+    this._cachedPaths = this.agents.map(a =>
+      a.pathHistory.map(p => ({ path: [...p.path], tileType: p.tileType }))
+    );
+    this._cachedPassedBy = this.agents.map(a => new Map(a.passedByTiles));
+    this._buildActivityTable();
+    this._showReplayBtn();
+    if (this.onComplete) this.onComplete();
+  }
+
   pause() {
     if (!this.running || this.paused) return;
     this.paused = true;
@@ -729,8 +774,8 @@ export class Simulation {
           const tr = document.createElement('tr');
           const loc = entry.location || '';
           let delta = '';
-          if (i > 0) {
-            const diffHours = entry.time - events[i - 1].time;
+          if (i < events.length - 1) {
+            const diffHours = events[i + 1].time - entry.time;
             const diffMin = Math.round(diffHours * 60);
             if (diffMin < 60) {
               delta = `${diffMin}m`;

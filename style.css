@@ -243,18 +243,20 @@ canvas {
   color: #aad4f0;
   font-weight: 600;
   font-size: 11px;
+  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .agent-event-table td {
   color: #ccc;
+  text-align: center;
 }
 
 .agent-event-table td.delta-cell {
   color: #8ab4f8;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
 }
 

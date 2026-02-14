@@ -8,6 +8,7 @@ const statusDisplay = document.getElementById('statusDisplay');
 const startBtn      = document.getElementById('startBtn');
 const generateBtn   = document.getElementById('generateBtn');
 const replayBtn     = document.getElementById('replayBtn');
+const completeBtn   = document.getElementById('completeBtn');
 
 // ── Initialise simulation ────────────────────────────────────────
 
@@ -35,16 +36,29 @@ startBtn.addEventListener('click', () => {
   } else {
     sim.stop();
     sim.start();
+    completeBtn.style.display = 'inline-block';
+    completeBtn.disabled = false;
   }
   updateStartBtn();
 });
 
 // Update button label when sim completes on its own
-sim.onComplete = () => updateStartBtn();
+sim.onComplete = () => {
+  updateStartBtn();
+  completeBtn.disabled = true;
+};
 
 generateBtn.addEventListener('click', () => {
   sim.generateCity();
   updateStartBtn();
+  completeBtn.style.display = 'none';
+  completeBtn.disabled = false;
+});
+
+completeBtn.addEventListener('click', () => {
+  completeBtn.disabled = true;
+  replayBtn.disabled = true;
+  sim.completeNow();
 });
 
 replayBtn.addEventListener('click', () => {
