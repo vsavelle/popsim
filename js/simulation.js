@@ -722,12 +722,25 @@ export class Simulation {
       } else {
         const table = document.createElement('table');
         table.classList.add('agent-event-table');
-        table.innerHTML = `<thead><tr><th>Event</th><th>Time</th><th>Location</th></tr></thead>`;
+        table.innerHTML = `<thead><tr><th>Event</th><th>Time</th><th>Delta Time</th><th>Location</th></tr></thead>`;
         const tbody = document.createElement('tbody');
-        for (const entry of events) {
+        for (let i = 0; i < events.length; i++) {
+          const entry = events[i];
           const tr = document.createElement('tr');
           const loc = entry.location || '';
-          tr.innerHTML = `<td>${entry.event}</td><td>${formatSimTime(entry.time)}</td><td class="loc-cell">${loc}</td>`;
+          let delta = '';
+          if (i > 0) {
+            const diffHours = entry.time - events[i - 1].time;
+            const diffMin = Math.round(diffHours * 60);
+            if (diffMin < 60) {
+              delta = `${diffMin}m`;
+            } else {
+              const h = Math.floor(diffMin / 60);
+              const m = diffMin % 60;
+              delta = m > 0 ? `${h}h ${m}m` : `${h}h`;
+            }
+          }
+          tr.innerHTML = `<td>${entry.event}</td><td>${formatSimTime(entry.time)}</td><td class="delta-cell">${delta}</td><td class="loc-cell">${loc}</td>`;
           tbody.appendChild(tr);
         }
         table.appendChild(tbody);

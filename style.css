@@ -251,6 +251,13 @@ canvas {
   color: #ccc;
 }
 
+.agent-event-table td.delta-cell {
+  color: #8ab4f8;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .agent-event-table tbody tr:hover {
   background: rgba(126, 184, 218, 0.05);
 }
