@@ -183,7 +183,6 @@ export class Simulation {
     );
     this._cachedPassedBy = this.agents.map(a => new Map(a.passedByTiles));
     this._buildActivityTable();
-    this._showReplayBtn();
     if (this.onComplete) this.onComplete();
   }
 

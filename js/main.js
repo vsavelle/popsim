@@ -56,8 +56,8 @@ generateBtn.addEventListener('click', () => {
 });
 
 completeBtn.addEventListener('click', () => {
-  completeBtn.disabled = true;
-  replayBtn.disabled = true;
+  completeBtn.style.display = 'none';
+  replayBtn.style.display = 'none';
   sim.completeNow();
 });
 
