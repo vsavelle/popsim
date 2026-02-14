@@ -40,7 +40,7 @@ export class City {
     this.generate();
   }
 
-  /** Build a new random city layout. */
+  /** Build a new random city layout with zoned districts. */
   generate() {
     // 1. Fill with empty
     this.grid = Array.from({ length: this.rows }, () =>
@@ -52,6 +52,15 @@ export class City {
     this.eateries = [];
     this.tileNames = new Map();
     resetAddresses();
+
+    // ── Compute centre point and radii for zoning ──
+    const cx = this.cols / 2;
+    const cy = this.rows / 2;
+    // Normalised radius: 0 = centre, 1 = corner
+    const maxR = Math.sqrt(cx * cx + cy * cy);
+
+    // Commercial zone boundary (inner ~40% of the radius)
+    const commercialThreshold = 0.40;
 
     // 2. Lay down horizontal roads (full-width rows)
     const hRoads = [];
@@ -75,36 +84,132 @@ export class City {
       x += 5 + Math.floor(Math.random() * 4);
     }
 
-    // 4. Place buildings next to roads
+    // ── Determine tile budget based on agent usage + 10% surplus ──
+    // MAX_AGENTS = 150 (imported via constant below)
+    const agentCount   = 150;
+    const targetHouses    = Math.ceil(agentCount * 1.10);       // each agent needs 1 home
+    const targetBusiness  = Math.ceil(agentCount * 0.25 * 1.10); // ~25% unique workplaces
+    const targetLeisure   = Math.ceil(agentCount * 0.15 * 1.10); // ~15% leisure spots
+    const targetEatery    = Math.ceil(agentCount * 0.15 * 1.10); // ~15% eateries
+
+    // 4. Collect all road-adjacent empty cells and classify by zone
+    const commercialCandidates = [];
+    const residentialCandidates = [];
+
     for (let by = 0; by < this.rows; by++) {
       for (let bx = 0; bx < this.cols; bx++) {
         if (this.grid[by][bx] !== TILE.EMPTY) continue;
         if (!this._isAdjacentToRoad(bx, by)) continue;
 
-        const r = Math.random();
-        if (r < 0.45) {
-          this.grid[by][bx] = TILE.HOUSE;
-          this.houses.push({ x: bx, y: by });
-          this.tileNames.set(`${bx},${by}`, generateAddress());
-        } else if (r < 0.65) {
-          this.grid[by][bx] = TILE.BUSINESS;
-          this.businesses.push({ x: bx, y: by });
-          this.tileNames.set(`${bx},${by}`, generateName('business'));
-        } else if (r < 0.80) {
-          this.grid[by][bx] = TILE.LEISURE;
-          this.leisureSpots.push({ x: bx, y: by });
-          this.tileNames.set(`${bx},${by}`, generateName('leisure'));
-        } else if (r < 0.88) {
-          this.grid[by][bx] = TILE.EATERY;
-          this.eateries.push({ x: bx, y: by });
-          this.tileNames.set(`${bx},${by}`, generateName('eatery'));
+        const dx = bx - cx;
+        const dy = by - cy;
+        const normR = Math.sqrt(dx * dx + dy * dy) / maxR;
+
+        if (normR <= commercialThreshold) {
+          commercialCandidates.push({ x: bx, y: by });
+        } else {
+          residentialCandidates.push({ x: bx, y: by });
         }
-        // else stays empty → open space
       }
     }
 
-    // 5. Safety: guarantee at least one of each building type
+    // Shuffle candidates for randomness
+    this._shuffleArr(commercialCandidates);
+    this._shuffleArr(residentialCandidates);
+
+    // 5. Place commercial tiles in the centre zone
+    let bizCount = 0, leisureCount = 0, eatCount = 0;
+    const totalCommercial = targetBusiness + targetLeisure + targetEatery;
+
+    for (const pos of commercialCandidates) {
+      if (bizCount + leisureCount + eatCount >= totalCommercial) break;
+
+      const r = Math.random();
+      if (r < 0.45 && bizCount < targetBusiness) {
+        this.grid[pos.y][pos.x] = TILE.BUSINESS;
+        this.businesses.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('business'));
+        bizCount++;
+      } else if (r < 0.72 && leisureCount < targetLeisure) {
+        this.grid[pos.y][pos.x] = TILE.LEISURE;
+        this.leisureSpots.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('leisure'));
+        leisureCount++;
+      } else if (eatCount < targetEatery) {
+        this.grid[pos.y][pos.x] = TILE.EATERY;
+        this.eateries.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('eatery'));
+        eatCount++;
+      } else if (bizCount < targetBusiness) {
+        this.grid[pos.y][pos.x] = TILE.BUSINESS;
+        this.businesses.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('business'));
+        bizCount++;
+      } else if (leisureCount < targetLeisure) {
+        this.grid[pos.y][pos.x] = TILE.LEISURE;
+        this.leisureSpots.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('leisure'));
+        leisureCount++;
+      }
+    }
+
+    // If commercial zone didn't have enough space, spill into residential
+    for (const pos of residentialCandidates) {
+      if (bizCount >= targetBusiness && leisureCount >= targetLeisure && eatCount >= targetEatery) break;
+      if (bizCount < targetBusiness) {
+        this.grid[pos.y][pos.x] = TILE.BUSINESS;
+        this.businesses.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('business'));
+        bizCount++;
+      } else if (leisureCount < targetLeisure) {
+        this.grid[pos.y][pos.x] = TILE.LEISURE;
+        this.leisureSpots.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('leisure'));
+        leisureCount++;
+      } else if (eatCount < targetEatery) {
+        this.grid[pos.y][pos.x] = TILE.EATERY;
+        this.eateries.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateName('eatery'));
+        eatCount++;
+      }
+    }
+
+    // 6. Place houses on the outer ring (residential candidates not yet used)
+    let houseCount = 0;
+    for (const pos of residentialCandidates) {
+      if (houseCount >= targetHouses) break;
+      if (this.grid[pos.y][pos.x] !== TILE.EMPTY) continue;  // skip if used for spill
+
+      this.grid[pos.y][pos.x] = TILE.HOUSE;
+      this.houses.push(pos);
+      this.tileNames.set(`${pos.x},${pos.y}`, generateAddress());
+      houseCount++;
+    }
+
+    // If outer ring didn't have enough space, place houses in commercial zone gaps
+    if (houseCount < targetHouses) {
+      for (const pos of commercialCandidates) {
+        if (houseCount >= targetHouses) break;
+        if (this.grid[pos.y][pos.x] !== TILE.EMPTY) continue;
+
+        this.grid[pos.y][pos.x] = TILE.HOUSE;
+        this.houses.push(pos);
+        this.tileNames.set(`${pos.x},${pos.y}`, generateAddress());
+        houseCount++;
+      }
+    }
+
+    // 7. Safety: guarantee at least one of each building type
     this._ensureMinBuildings();
+  }
+
+  /** Fisher-Yates shuffle helper (in-place) */
+  _shuffleArr(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }
 
   /** Convert some houses if a building type is missing. */
