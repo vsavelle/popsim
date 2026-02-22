@@ -15,6 +15,7 @@ const AGENT_COLORS = {
   traveling: '#ffffff',
   working:   '#ff4444',
   leisure:   '#ff66ff',
+  visiting:  '#ffaa33',
 };
 
 // Path colours keyed by tile type (lighter for visibility on dark map)
@@ -277,7 +278,7 @@ export class Simulation {
 
   _recordFrame(realTime, simHours) {
     const agents = this.agents.map(a => ({
-      x: a.x, y: a.y, state: a.state, id: a.id
+      x: a.x, y: a.y, state: a.state, phase: a.phase, id: a.id
     }));
     const drivers = this.drivers.map(d => ({
       x: d.x, y: d.y, phase: d.phase, agentId: d.agent.id
@@ -292,6 +293,7 @@ export class Simulation {
         agent.x = snap.x;
         agent.y = snap.y;
         agent.state = snap.state;
+        agent.phase = snap.phase;
       }
     }
     for (let i = 0; i < frame.drivers.length; i++) {
@@ -511,6 +513,25 @@ export class Simulation {
       }
     }
 
+    // Detect visiting agents and home agents sharing tiles
+    const visitingAgentIds = new Set();
+    const visitedTiles = new Set();
+    for (const agent of this.agents) {
+      if (agent.phase === 'at_friend' && agent.friendHome) {
+        visitingAgentIds.add(agent.id);
+        visitedTiles.add(`${Math.round(agent.x)},${Math.round(agent.y)}`);
+      }
+    }
+    const homeAgentsAtVisitedTile = new Set();
+    for (const agent of this.agents) {
+      if (!visitingAgentIds.has(agent.id)) {
+        const key = `${Math.round(agent.x)},${Math.round(agent.y)}`;
+        if (visitedTiles.has(key)) {
+          homeAgentsAtVisitedTile.add(agent.id);
+        }
+      }
+    }
+
     for (const agent of this.agents) {
       let px = agent.x * CELL_SIZE + CELL_SIZE / 2;
       const py = agent.y * CELL_SIZE + CELL_SIZE / 2;
@@ -520,8 +541,30 @@ export class Simulation {
         px -= AGENT_RADIUS + 1;
       }
 
+      // Offset for friend visits: home agent left, visiting agent right
+      if (homeAgentsAtVisitedTile.has(agent.id)) {
+        px -= AGENT_RADIUS + 1;
+      } else if (visitingAgentIds.has(agent.id)) {
+        px += AGENT_RADIUS + 1;
+      }
+
+      // Determine dot color
+      let dotColor;
+      if (sharedAgentIds.has(agent.id)) {
+        // Agent receiving delivery: always red (working)
+        dotColor = '#ff4444';
+      } else if (visitingAgentIds.has(agent.id)) {
+        // Visitor is always white
+        dotColor = '#ffffff';
+      } else if (homeAgentsAtVisitedTile.has(agent.id)) {
+        // Home owner: green unless sleeping → black
+        dotColor = agent.state === 'sleeping' ? '#111111' : '#00ff88';
+      } else {
+        dotColor = AGENT_COLORS[agent.state] || '#888';
+      }
+
       // Draw dot
-      ctx.fillStyle = AGENT_COLORS[agent.state] || '#888';
+      ctx.fillStyle = dotColor;
       ctx.beginPath();
       ctx.arc(px, py, AGENT_RADIUS, 0, Math.PI * 2);
       ctx.fill();
@@ -691,6 +734,24 @@ export class Simulation {
       this.drivers.push(
         new DeliveryDriver(agent.eatery, agent.workplace, agent, this.city, simHoursPerSec)
       );
+    }
+
+    // ── Assign friend homes for potential visits ──────────────
+    for (const agent of this.agents) {
+      if (!agent.wantsToVisitFriend) continue;
+
+      const candidates = this.agents.filter(other => {
+        if (other === agent) return false;
+        const dx = Math.abs(agent.home.x - other.home.x);
+        const dy = Math.abs(agent.home.y - other.home.y);
+        return (dx + dy) < 30;
+      });
+
+      if (candidates.length > 0) {
+        const friend = candidates[Math.floor(Math.random() * candidates.length)];
+        agent.friendHome  = { x: friend.home.x, y: friend.home.y };
+        agent.friendAgent = friend;
+      }
     }
   }
 

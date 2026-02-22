@@ -67,13 +67,20 @@ export class Agent {
     }
     this._hadLunch = false;
 
-    // Simple distance check: if eatery > 20 tiles away → order delivery
+    // Distance-based delivery probability: farther eateries are more likely,
+    // but even close ones have a chance (busy / lazy / preference).
     this.ordersDelivery = false;
     this._orderedDelivery = false;   // tracks if order event was logged
     if (this.takesLunch) {
       const dx = Math.abs(this.workplace.x - this.eatery.x);
       const dy = Math.abs(this.workplace.y - this.eatery.y);
-      if (Math.max(dx, dy) > 20) {
+      const dist = Math.max(dx, dy);
+      // Far (>15): always order; mid (8-15): ~55% chance; close (<8): ~25% chance
+      let deliveryChance;
+      if (dist > 15)      deliveryChance = 1.0;
+      else if (dist >= 8) deliveryChance = 0.55;
+      else                deliveryChance = 0.25;
+      if (Math.random() < deliveryChance) {
         this.ordersDelivery = true;
         // Order placed ~30 min (±5 min) before lunchStart (when delivery arrives)
         this.orderTime = this.lunchStart - (25 + Math.random() * 10) / 60;
@@ -82,6 +89,12 @@ export class Agent {
 
     this.wantsLeisure    = Math.random() < 0.4;
     this.leisureDuration = 1 + Math.random() * 2;
+
+    // Friend visit: 30% chance (destination assigned by Simulation after creation)
+    this.wantsToVisitFriend = Math.random() < 0.3;
+    this.friendHome   = null;   // another agent's home tile (set externally)
+    this.friendAgent  = null;   // reference to that agent
+    this.visitDuration = 0.5 + Math.random() * 1;  // 30–90 min
 
     this.bedTime = 20 + Math.random() * 4;
     this.curfew  = this.bedTime - 1;
@@ -256,6 +269,42 @@ export class Agent {
 
       case 'commuting_home_from_leisure':
         if (this._moveAlongPath(deltaSeconds)) {
+          this.state = 'home';
+          this._logEvent('Arrived home', simHours, this._nameAt(this.home));
+          this._decideFriendVisit(simHours);
+        }
+        break;
+
+      case 'at_home_considering_friend_visit':
+        if (simHours >= this._friendVisitDepartureTime) {
+          this._navigateTo(this.friendHome);
+          if (this.path) {
+            this.phase = 'commuting_to_friend';
+            this.state = 'traveling';
+            this._logEvent('Left for friend\'s home', simHours, this._nameAt(this.home));
+          } else {
+            this.phase = 'at_home_evening';
+          }
+        }
+        break;
+
+      case 'commuting_to_friend':
+        if (this._moveAlongPath(deltaSeconds)) {
+          this.phase = 'at_friend';
+          this.state = 'visiting';
+          this._logEvent('Arrived friend\'s home', simHours, this._nameAt(this.friendHome));
+        }
+        break;
+
+      case 'at_friend':
+        if (simHours >= this._friendVisitEndTime) {
+          this._logEvent('Left friend\'s home', simHours, this._nameAt(this.friendHome));
+          this._headHome(simHours, 'commuting_home_from_friend');
+        }
+        break;
+
+      case 'commuting_home_from_friend':
+        if (this._moveAlongPath(deltaSeconds)) {
           this.phase = 'at_home_evening';
           this.state = 'home';
           this._logEvent('Arrived home', simHours, this._nameAt(this.home));
@@ -302,7 +351,24 @@ export class Agent {
         return;
       }
     }
-    // No leisure — stay home for the evening
+    // No leisure — check for friend visit
+    this._decideFriendVisit(simHours);
+  }
+
+  /**
+   * After arriving home (from work or leisure), decide whether to visit a friend.
+   */
+  _decideFriendVisit(simHours) {
+    if (this.wantsToVisitFriend && this.friendHome) {
+      // Estimate: short rest + visit duration + commute buffer
+      const estimatedReturn = simHours + 0.3 + this.visitDuration + 0.5;
+      if (estimatedReturn <= this.curfew) {
+        this._friendVisitDepartureTime = simHours + 0.2 + Math.random() * 0.3;
+        this._friendVisitEndTime = this._friendVisitDepartureTime + 0.2 + this.visitDuration;
+        this.phase = 'at_home_considering_friend_visit';
+        return;
+      }
+    }
     this.phase = 'at_home_evening';
   }
 
@@ -319,6 +385,8 @@ export class Agent {
       this._logEvent('Arrived home', simHours, this._nameAt(this.home));
       if (nextPhase === 'commuting_home_from_work') {
         this._decideLeisure(simHours);
+      } else if (nextPhase === 'commuting_home_from_leisure') {
+        this._decideFriendVisit(simHours);
       } else {
         this.phase = 'at_home_evening';
       }
