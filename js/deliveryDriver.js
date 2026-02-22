@@ -33,6 +33,7 @@ export class DeliveryDriver {
     this.pathIndex    = 0;
     this.moveProgress = 0;
     this._dropOffEnd  = 0;                        // sim-hour when drop-off finishes
+    this._dropOffMinutes = 8 + Math.random() * 4; // 8–12 in-world minutes
 
     // Pre-compute the delivery path so we can schedule departure
     this._deliveryPath = findPath(city, eatery.x, eatery.y, business.x, business.y);
@@ -69,21 +70,23 @@ export class DeliveryDriver {
 
       case 'delivering':
         if (this._moveAlongPath(deltaSeconds)) {
-          // Arrived at business — start 10-minute drop-off
+          // Arrived at business — start randomised drop-off
           this.x = this.business.x;
           this.y = this.business.y;
-          this._dropOffEnd = simHours + (10 / 60);   // 10 in-world minutes
+          this._dropOffEnd = simHours + (this._dropOffMinutes / 60);
           this.phase = 'dropping_off';
 
           const eateryName =
             this.city.getNameAt(this.eatery.x, this.eatery.y) || 'Eatery';
-          this.agent._logEvent('Delivery by ' + eateryName, simHours, eateryName);
+          this.agent._logEvent('Delivery arrived', simHours, eateryName);
+          this.agent._deliveryArrivedTime = simHours;
         }
         break;
 
       case 'dropping_off':
-        // Stay at business tile for 10 in-world minutes
+        // Stay at business tile for 8–12 in-world minutes
         if (simHours >= this._dropOffEnd) {
+          this.agent._deliveryDone = true;
           this._navigateTo(this.eatery);
           this.phase = this.path ? 'returning' : 'done';
         }

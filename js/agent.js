@@ -71,6 +71,9 @@ export class Agent {
     // but even close ones have a chance (busy / lazy / preference).
     this.ordersDelivery = false;
     this._orderedDelivery = false;   // tracks if order event was logged
+    this._deliveryDone = false;      // set by driver when drop-off finishes
+    this._eatingDuration = (13 + Math.random() * 5) / 60;  // 13–18 min in sim hours
+    this._deliveryArrivedTime = 0;   // sim-hour when delivery arrived (for work extension)
     if (this.takesLunch) {
       const dx = Math.abs(this.workplace.x - this.eatery.x);
       const dy = Math.abs(this.workplace.y - this.eatery.y);
@@ -161,6 +164,15 @@ export class Agent {
           this._orderedDelivery = true;
           this._logEvent('Ordered delivery', simHours, this._nameAt(this.eatery));
         }
+        // Delivery finished — start eating
+        if (this._deliveryDone) {
+          this._deliveryDone = false;
+          this._eatingEndTime = simHours + this._eatingDuration;
+          this.phase = 'eating_delivery';
+          this.state = 'leisure';
+          this._logEvent('Eating', simHours, this._nameAt(this.workplace));
+          break;
+        }
         // Check lunch first (only once)
         if (!this._hadLunch && this.takesLunch && simHours >= this.lunchStart) {
           this._hadLunch = true;
@@ -180,6 +192,17 @@ export class Agent {
         if (simHours >= this.workEnd) {
           this._logEvent('Left work', simHours, this._nameAt(this.workplace));
           this._headHome(simHours, 'commuting_home_from_work');
+        }
+        break;
+
+      case 'eating_delivery':
+        if (simHours >= this._eatingEndTime) {
+          // Extend work end by the total break time (delivery wait + eating)
+          const breakTime = simHours - this._deliveryArrivedTime;
+          this.workEnd += breakTime;
+          this.phase = 'at_work';
+          this.state = 'working';
+          this._logEvent('Returned to work', simHours, this._nameAt(this.workplace));
         }
         break;
 
