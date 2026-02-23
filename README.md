@@ -14,19 +14,18 @@ The order of events:
 - Delivery drivers are blue dots, they each spend 10 minutes to deliver and then go back to the eatery, where they spawned.
 - After lunch, agents continue work until the shit is over, then they either go home or go to leisure activity, then home.
 - Agents can go out once again after returning home if time allows, randomly
+- Agents can also go visit other houses to visit friends.
 - All agents end up at home and go to sleep latest by midnight.
 
 After the simulation, a table is presented below, listing all locations and time tables of every place the agent visited, and food that was delivered to them.
 Clicking on an agent ID in the table also highlights their movement around the city for the whole day.
 
-More features may be added.
+I'm planning to expand on this to more data mining, a 2.0 version is in the works.
 
 <img width="1542" height="1619" alt="popsim_scr2" src="https://github.com/user-attachments/assets/8be67010-6458-456c-809f-e98e52630dca" />
 
 This entire thing was made to help with showing how location data can erode privacy.
 
-
-
-
 But how do I run this?
+
 **python3 -m http.server 8000**
